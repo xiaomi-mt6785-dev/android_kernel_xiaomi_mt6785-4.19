@@ -66,7 +66,7 @@
 #include "gf_spi_tee.h"
 #include  <linux/regulator/consumer.h>
 
-#define WAKELOCK_HOLD_TIME 2000 /* in ms */
+#define WAKELOCK_HOLD_TIME 1000 /* in ms */
 
 /**************************defination******************************/
 #define GF_DEV_NAME "goodix_fp"
