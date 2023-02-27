@@ -11,15 +11,12 @@ struct mtk_extcon_info {
 	struct workqueue_struct *extcon_wq;
 	bool support_u3;
 	struct regulator *vbus;
-	struct gpio_desc *id_gpiod;
 	unsigned int vbus_vol;
 	unsigned int vbus_cur;
-	unsigned int id_irq;
 	bool vbus_on;
 	struct device_connection dev_conn;
 	struct power_supply *usb_psy;
 	struct notifier_block psy_nb;
-	struct delayed_work wq_detcable;
 #ifdef CONFIG_TCPC_CLASS
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block tcpc_nb;

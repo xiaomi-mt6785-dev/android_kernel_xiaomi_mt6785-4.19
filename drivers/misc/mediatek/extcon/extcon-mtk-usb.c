@@ -451,82 +451,6 @@ static int mtk_usb_extcon_tcpc_init(struct mtk_extcon_info *extcon)
 }
 #endif
 
-static void mtk_usb_extcon_detect_cable(struct work_struct *work)
-{
-	struct mtk_extcon_info *extcon = container_of(to_delayed_work(work),
-						    struct mtk_extcon_info,
-						    wq_detcable);
-	int id;
-
-	/* check ID and update cable state */
-	id = extcon->id_gpiod ?
-		gpiod_get_value_cansleep(extcon->id_gpiod) : 1;
-
-	/* at first we clean states which are no longer active */
-	if (id) {
-		mtk_usb_extcon_set_vbus(extcon, false);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
-	} else {
-		mtk_usb_extcon_set_vbus(extcon, true);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
-	}
-}
-
-static irqreturn_t mtk_usb_idpin_handle(int irq, void *dev_id)
-{
-	struct mtk_extcon_info *extcon = dev_id;
-
-	/* issue detection work */
-	queue_delayed_work(system_power_efficient_wq, &extcon->wq_detcable, 0);
-
-	return IRQ_HANDLED;
-}
-
-static int mtk_usb_extcon_id_pin_init(struct mtk_extcon_info *extcon)
-{
-	int ret = 0;
-	int id;
-
-	extcon->id_gpiod = devm_gpiod_get(extcon->dev, "id", GPIOD_IN);
-
-	if (!extcon->id_gpiod || IS_ERR(extcon->id_gpiod)) {
-		dev_err(extcon->dev, "failed to get id gpio\n");
-		extcon->id_gpiod = NULL;
-		return -EINVAL;
-	}
-
-	extcon->id_irq = gpiod_to_irq(extcon->id_gpiod);
-	if (extcon->id_irq < 0) {
-		dev_err(extcon->dev, "failed to get ID IRQ\n");
-		extcon->id_gpiod = NULL;
-		return -EINVAL;
-	}
-
-	INIT_DELAYED_WORK(&extcon->wq_detcable, mtk_usb_extcon_detect_cable);
-
-	ret = devm_request_threaded_irq(extcon->dev, extcon->id_irq, NULL,
-			mtk_usb_idpin_handle, IRQF_TRIGGER_RISING |
-			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-			dev_name(extcon->dev), extcon);
-
-	if (ret < 0) {
-		dev_err(extcon->dev, "failed to request handler for ID IRQ\n");
-		extcon->id_gpiod = NULL;
-		return ret;
-	}
-	enable_irq_wake(extcon->id_irq);
-
-	// get id pin value when boot on
-	id = extcon->id_gpiod ?	gpiod_get_value_cansleep(extcon->id_gpiod) : 1;
-	dev_info(extcon->dev, "id value : %d\n", id);
-	if (!id) {
-		mtk_usb_extcon_set_vbus(extcon, true);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
-	}
-
-	return 0;
-}
-
 #if defined ADAPT_PSY_V1
 static void issue_connection_work(unsigned int dr)
 {
@@ -651,11 +575,6 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 	/* default turn off vbus */
 	mtk_usb_extcon_set_vbus(extcon, false);
-
-	/*get id resources*/
-	ret = mtk_usb_extcon_id_pin_init(extcon);
-	if (ret < 0)
-		dev_info(dev, "failed to init id pin\n");
 
 	/* power psy */
 	ret = mtk_usb_extcon_psy_init(extcon);
