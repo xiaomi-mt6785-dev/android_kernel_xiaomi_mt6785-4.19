@@ -1107,6 +1107,7 @@ u8 *rndis_get_next_response(struct rndis_params *params, u32 *length)
 		if (!r->send) {
 			r->send = 1;
 			*length = r->length;
+			spin_unlock(&params->resp_lock);
 			return r->buf;
 		}
 	}
